@@ -404,6 +404,105 @@
     margin-bottom:6px;
   }
   .insight-line:last-child{margin-bottom:0;}
+
+  /* Scorecard */
+  .scorecard-wrap{
+    overflow-x:auto;
+    margin-top:4px;
+  }
+  .scorecard{
+    border-collapse:collapse;
+    width:100%;
+    font-size:12px;
+  }
+  .scorecard th{
+    background:var(--turf);
+    color:var(--cream);
+    padding:5px 3px;
+    text-align:center;
+    font-weight:700;
+    white-space:nowrap;
+  }
+  .scorecard td{
+    padding:5px 3px;
+    text-align:center;
+    border:1px solid var(--line);
+    background:var(--card);
+    min-width:24px;
+  }
+  .scorecard tr.par-row td{
+    background:var(--fairway);
+    color:var(--muted);
+    font-weight:600;
+    font-size:11px;
+  }
+  .scorecard tr.score-row td{
+    font-weight:700;
+    font-size:13px;
+  }
+  .sc-hole{
+    background:var(--turf-dark) !important;
+    color:var(--cream) !important;
+    font-weight:700;
+    font-size:11px;
+  }
+  /* score cell notation */
+  .sc-eagle{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:22px;height:22px;
+    border-radius:50%;
+    outline:2px solid var(--turf);
+    outline-offset:2px;
+    box-shadow:0 0 0 4px var(--cream), 0 0 0 6px var(--turf);
+    color:var(--turf);
+    font-weight:700;
+  }
+  .sc-birdie{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:22px;height:22px;
+    border-radius:50%;
+    border:2px solid var(--turf);
+    color:var(--turf);
+    font-weight:700;
+  }
+  .sc-par{
+    color:var(--ink);
+    font-weight:700;
+  }
+  .sc-bogey{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:22px;height:22px;
+    border:2px solid var(--flag);
+    border-radius:0;
+    color:var(--flag);
+    font-weight:700;
+  }
+  .sc-double{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:22px;height:22px;
+    border:2px solid var(--flag);
+    border-radius:0;
+    outline:2px solid var(--flag);
+    outline-offset:3px;
+    color:var(--flag);
+    font-weight:700;
+  }
+  .sc-triple{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:22px;height:22px;
+    border:2px solid #8B1A00;
+    border-radius:0;
+    outline:2px solid #8B1A00;
+    outline-offset:3px;
+    box-shadow:0 0 0 7px var(--cream), 0 0 0 9px #8B1A00;
+    color:#8B1A00;
+    font-weight:700;
+  }
+  .sc-total td{
+    background:var(--turf) !important;
+    color:var(--cream) !important;
+    font-weight:700;
+  }
   .setup-wrap{
     margin:14px 12px;
     background:var(--cream);
@@ -938,6 +1037,84 @@ function buildRoundEmail(roundCounts, allCounts, history, courseName){
   return { subject: subject, body: lines.join('\n') };
 }
 
+function scoreNotation(score, par){
+  if(score === null) return '<span style="color:var(--muted);">—</span>';
+  const diff = score - par;
+  const s = score;
+  if(diff <= -2) return '<span class="sc-eagle">'+s+'</span>';
+  if(diff === -1) return '<span class="sc-birdie">'+s+'</span>';
+  if(diff === 0)  return '<span class="sc-par">'+s+'</span>';
+  if(diff === 1)  return '<span class="sc-bogey">'+s+'</span>';
+  if(diff === 2)  return '<span class="sc-double">'+s+'</span>';
+  return '<span class="sc-triple">'+s+'</span>';
+}
+
+function renderScorecard(area){
+  if(!roundMeta || !roundMeta.pars) return; // only show when par entered
+
+  const label = document.createElement('div');
+  label.className = 'section-label';
+  label.style.marginTop = '14px';
+  label.textContent = 'Scorecard';
+  area.appendChild(label);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'scorecard-wrap';
+
+  // Split into front 9 / back 9
+  [1, 10].forEach(start=>{
+    const end = start + 8;
+    const holeNums = [];
+    for(let i=start; i<=end; i++) holeNums.push(i);
+
+    let parTotal = 0, scoreTotal = 0, anyScore = false;
+    let holeRow = '<tr><th class="sc-hole">'+(start===1?'Out':'In')+'</th>';
+    let parRow  = '<tr class="par-row"><td>Par</td>';
+    let scoreRow = '<tr class="score-row"><td style="background:var(--fairway);font-size:11px;color:var(--muted);font-weight:600;">Score</td>';
+
+    holeNums.forEach(n=>{
+      const par  = roundMeta.pars[n];
+      const d    = holes[n] ? holes[n].data : {};
+      const score = d.score !== null && d.score !== undefined ? d.score : null;
+      parTotal  += par;
+      if(score !== null){ scoreTotal += score; anyScore = true; }
+      holeRow  += '<th class="sc-hole">'+n+'</th>';
+      parRow   += '<td>'+par+'</td>';
+      scoreRow += '<td>'+scoreNotation(score, par)+'</td>';
+    });
+
+    holeRow  += '<th class="sc-hole">'+(start===1?'Out':'In')+'</th></tr>';
+    parRow   += '<td style="font-weight:700;">'+parTotal+'</td></tr>';
+    scoreRow += '<td>'+(anyScore?scoreTotal:'—')+'</td></tr>';
+
+    const table = document.createElement('table');
+    table.className = 'scorecard';
+    table.innerHTML = '<tbody>'+holeRow+parRow+scoreRow+'</tbody>';
+    wrap.appendChild(table);
+
+    // small gap between nines
+    if(start === 1){
+      const spacer = document.createElement('div');
+      spacer.style.height = '6px';
+      wrap.appendChild(spacer);
+    }
+  });
+
+  // Total row
+  let totalPar = 0, totalScore = 0, anyScore = false;
+  for(let i=1;i<=18;i++){
+    totalPar += roundMeta.pars[i];
+    const d = holes[i] ? holes[i].data : {};
+    if(d.score !== null && d.score !== undefined){ totalScore += d.score; anyScore = true; }
+  }
+  const totalTable = document.createElement('table');
+  totalTable.className = 'scorecard';
+  totalTable.innerHTML = '<tbody><tr class="sc-total"><td>Total</td><td colspan="10" style="text-align:left; padding-left:8px;">Par '+totalPar+'</td><td>'+(anyScore?totalScore:'—')+'</td></tr></tbody>';
+  wrap.appendChild(totalTable);
+
+  area.appendChild(wrap);
+}
+
 function finishAndEmail(){
   const liveCounts = currentRoundCounts();
   if(liveCounts.holesLogged === 0){ alert('No hole data logged yet.'); return; }
@@ -976,12 +1153,15 @@ function renderSummary(area){
   area.appendChild(emailRow);
   document.getElementById('emailInput').onblur = (e)=>{ saveEmail(e.target.value.trim()); };
 
-  // Finish round button - prominent at top
+  // Finish round button
   const finishBtn = document.createElement('button');
   finishBtn.style.cssText = 'width:100%; margin-top:10px; background:var(--flag); color:var(--cream); border:none; border-radius:10px; padding:13px 0; font-size:15px; font-weight:700;';
   finishBtn.textContent = '⛳ Finish Round & Send Report';
   finishBtn.onclick = finishAndEmail;
   area.appendChild(finishBtn);
+
+  // Scorecard — right at the top after finish button
+  renderScorecard(area);
 
   // This round stats
   const liveCounts = currentRoundCounts();
