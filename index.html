@@ -1212,6 +1212,7 @@ function renderSummary(area){
   emailRow.className = 'field-row';
   emailRow.innerHTML = '<input type="email" id="emailInput" placeholder="you@example.com" value="'+loadEmail()+'" style="width:100%; font-size:13px;" />';
   area.appendChild(emailRow);
+  document.getElementById('emailInput').oninput = (e)=>{ saveEmail(e.target.value.trim()); };
   document.getElementById('emailInput').onblur = (e)=>{ saveEmail(e.target.value.trim()); };
 
   // Finish round button
@@ -1291,16 +1292,35 @@ function renderSummary(area){
     histLabel.textContent = 'Saved rounds';
     area.appendChild(histLabel);
 
-    history.slice().reverse().slice(0,10).forEach(r=>{
+    history.slice().reverse().slice(0,10).forEach((r, revIdx)=>{
       const p = pctFromCounts(r);
       const d = new Date(r.date);
       const dateStr = (d.getMonth()+1)+'/'+d.getDate()+'/'+String(d.getFullYear()).slice(2);
       const courseLabel = r.courseName ? (r.courseName+' \u00B7 ') : '';
+      // actual index in original (non-reversed) array
+      const actualIdx = history.length - 1 - revIdx;
       const row = document.createElement('div');
       row.className = 'field-row';
-      row.innerHTML = '<div class="field-label">'+courseLabel+dateStr+' \u00B7 '+r.holesLogged+' holes</div>' +
-        '<div style="font-size:12.5px; color:var(--muted);">FW '+(p.fairwayPct===null?'—':p.fairwayPct+'%')+' \u00B7 GIR '+(p.girPct===null?'—':p.girPct+'%')+' \u00B7 Putts '+(p.avgPutts===null?'—':p.avgPutts)+' \u00B7 Par '+(p.toPar===null?'NA':(p.toPar>0?'+':'')+p.toPar)+'</div>';
+      row.style.alignItems = 'flex-start';
+      row.innerHTML =
+        '<div>' +
+          '<div class="field-label" style="margin-bottom:2px;">'+courseLabel+dateStr+' \u00B7 '+r.holesLogged+' holes</div>' +
+          '<div style="font-size:12px; color:var(--muted);">FW '+(p.fairwayPct===null?'—':p.fairwayPct+'%')+' \u00B7 GIR '+(p.girPct===null?'—':p.girPct+'%')+' \u00B7 Putts '+(p.avgPutts===null?'—':p.avgPutts)+' \u00B7 Par '+(p.toPar===null?'NA':(p.toPar>0?'+':'')+p.toPar)+'</div>' +
+        '</div>' +
+        '<button class="del-round-btn" data-idx="'+actualIdx+'" style="flex-shrink:0; background:none; border:none; color:var(--muted); font-size:18px; padding:0 2px; line-height:1;">\u00D7</button>';
       area.appendChild(row);
+    });
+
+    // wire delete buttons after all rows rendered
+    area.querySelectorAll('.del-round-btn').forEach(btn=>{
+      btn.onclick = ()=>{
+        const idx = parseInt(btn.dataset.idx, 10);
+        if(!confirm('Remove this round from history?')) return;
+        const h = loadHistory();
+        h.splice(idx, 1);
+        saveHistory(h);
+        render();
+      };
     });
 
     const clearRow = document.createElement('div');
@@ -1356,12 +1376,20 @@ function renderSetupScreen(){
       '</div>' +
       '<div class="setup-btn-row" style="margin-top:8px;">' +
         '<button class="setup-btn-skip" id="setupSkipAll" style="flex:1;">Skip setup \u2014 generic round</button>' +
+      '</div>' +
+      '<div class="setup-btn-row" style="margin-top:8px;">' +
+        '<button class="setup-btn-skip" id="viewCardBtn" style="flex:1;">📋 View Card & History</button>' +
       '</div>';
     wrap.appendChild(card);
     document.getElementById('courseNameInput').oninput = (e)=>{ setupCourseName = e.target.value; };
     document.getElementById('setupNext').onclick = ()=>{ setupStep = 2; render(); };
     document.getElementById('setupSkipAll').onclick = ()=>{
       roundMeta = { courseName: '', pars: null };
+      render();
+    };
+    document.getElementById('viewCardBtn').onclick = ()=>{
+      roundMeta = { courseName: '', pars: null };
+      currentPhase = 'card';
       render();
     };
   } else {
