@@ -1009,6 +1009,65 @@ const EMAIL_KEY = 'caddie_email_v1';
 function loadEmail(){ try{ return localStorage.getItem(EMAIL_KEY) || ''; }catch(e){ return ''; } }
 function saveEmail(v){ try{ localStorage.setItem(EMAIL_KEY, v); }catch(e){} }
 
+function buildScorecardText(){
+  if(!roundMeta || !roundMeta.pars) return null;
+  const lines = [];
+  lines.push('SCORECARD');
+
+  [1, 10].forEach(start=>{
+    const label = start === 1 ? 'OUT' : 'IN';
+    const holeNums = [];
+    for(let i=start; i<=start+8; i++) holeNums.push(i);
+
+    let holeStr  = 'Hole  | ';
+    let parStr   = 'Par   | ';
+    let scoreStr = 'Score | ';
+    let parTotal = 0, scoreTotal = 0, anyScore = false;
+
+    holeNums.forEach(n=>{
+      const par = roundMeta.pars[n];
+      const d = holes[n] ? holes[n].data : {};
+      const score = (d.score !== null && d.score !== undefined) ? d.score : null;
+      parTotal += par;
+      holeStr  += String(n).padStart(3);
+      parStr   += String(par).padStart(3);
+      if(score !== null){
+        const diff = score - par;
+        let notation = String(score);
+        if(diff <= -2) notation = '(('+score+'))';
+        else if(diff === -1) notation = '('+score+')';
+        else if(diff === 0)  notation = ' '+score+' ';
+        else if(diff === 1)  notation = '['+score+']';
+        else if(diff === 2)  notation = '[['+score+']]';
+        else                 notation = '[[['+score+']]]';
+        scoreTotal += score;
+        anyScore = true;
+        scoreStr += notation.padStart(3);
+      } else {
+        scoreStr += '  —';
+      }
+    });
+
+    holeStr  += '  | ' + label;
+    parStr   += '  | ' + parTotal;
+    scoreStr += '  | ' + (anyScore ? scoreTotal : '—');
+    lines.push(holeStr);
+    lines.push(parStr);
+    lines.push(scoreStr);
+    lines.push('');
+  });
+
+  let totalPar = 0, totalScore = 0, anyScore = false;
+  for(let i=1;i<=18;i++){
+    totalPar += roundMeta.pars[i];
+    const d = holes[i] ? holes[i].data : {};
+    if(d.score !== null && d.score !== undefined){ totalScore += d.score; anyScore = true; }
+  }
+  lines.push('Total Par: ' + totalPar + '   Total Score: ' + (anyScore ? totalScore : '—'));
+  lines.push('Key: (birdie) [bogey] [[double]] [[[triple+]]] ((eagle))');
+  return lines.join('\n');
+}
+
 function buildRoundEmail(roundCounts, allCounts, history, courseName){
   const rp = pctFromCounts(roundCounts);
   const ap = pctFromCounts(allCounts);
@@ -1024,6 +1083,8 @@ function buildRoundEmail(roundCounts, allCounts, history, courseName){
   lines.push('Avg putts/hole: ' + (rp.avgPutts===null?'—':rp.avgPutts));
   lines.push('Score to par: ' + (rp.toPar===null?'NA':(rp.toPar>0?'+':'')+rp.toPar));
   lines.push('');
+  const scorecardText = buildScorecardText();
+  if(scorecardText){ lines.push(scorecardText); lines.push(''); }
   lines.push('SEASON STATS (' + history.length + ' rounds saved)');
   lines.push('Fairways hit: ' + (ap.fairwayPct===null?'—':ap.fairwayPct+'%'));
   lines.push('Greens in regulation: ' + (ap.girPct===null?'—':ap.girPct+'%'));
