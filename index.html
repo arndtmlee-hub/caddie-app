@@ -1393,38 +1393,8 @@ function showHistoryOverlay(){
   if(history.length === 0){
     const empty = document.createElement('div');
     empty.style.cssText = 'font-size:13px; color:var(--muted); padding:14px 0;';
-    empty.textContent = 'No rounds found under current storage key.';
+    empty.textContent = 'No rounds saved yet. Finish a round to start building your history.';
     card.appendChild(empty);
-
-    // Debug: show all localStorage keys and values
-    const debugLabel = document.createElement('div');
-    debugLabel.className = 'section-label';
-    debugLabel.style.marginTop = '14px';
-    debugLabel.textContent = 'Storage diagnostic';
-    card.appendChild(debugLabel);
-
-    try {
-      const keys = Object.keys(localStorage);
-      if(keys.length === 0){
-        const noKeys = document.createElement('div');
-        noKeys.style.cssText = 'font-size:12px; color:var(--muted); padding:4px 0;';
-        noKeys.textContent = 'localStorage is completely empty — no data found in this browser for this URL.';
-        card.appendChild(noKeys);
-      } else {
-        keys.forEach(k=>{
-          const val = localStorage.getItem(k);
-          const row = document.createElement('div');
-          row.style.cssText = 'font-size:11px; color:var(--ink); padding:4px 0; border-bottom:1px solid var(--line); word-break:break-all;';
-          row.innerHTML = '<strong>'+k+'</strong><br>' + (val ? val.slice(0,200)+(val.length>200?'…':'') : 'null');
-          card.appendChild(row);
-        });
-      }
-    } catch(e){
-      const err = document.createElement('div');
-      err.style.cssText = 'font-size:12px; color:var(--flag);';
-      err.textContent = 'Error reading localStorage: ' + e.message;
-      card.appendChild(err);
-    }
     return;
   }
 
