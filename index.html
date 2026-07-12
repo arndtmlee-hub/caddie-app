@@ -614,6 +614,7 @@
 </header>
 
 <div id="helpScreen"></div>
+<div id="historyOverlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:var(--fairway); z-index:20; overflow-y:auto; padding-bottom:20px;"></div>
 <div id="setupScreen"></div>
 
 <div id="mainApp">
@@ -1357,6 +1358,117 @@ function buildInsight(fairwayPct, girPct, avgPutts, chipPct, holesLogged){
   return top.map(g=>'<div class="insight-line"><strong>'+g.area+':</strong> '+g.text+'</div>').join('');
 }
 
+function showHistoryOverlay(){
+  const overlay = document.getElementById('historyOverlay');
+  overlay.style.display = 'block';
+  overlay.innerHTML = '';
+
+  // Header bar
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'background:var(--turf); color:var(--cream); padding:12px 14px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:1;';
+  hdr.innerHTML = '<span style="font-size:16px; font-weight:700;">📋 Card & History</span><button id="closeOverlayBtn" style="background:none; border:1.5px solid rgba(247,244,234,0.5); color:var(--cream); border-radius:8px; padding:5px 12px; font-size:13px; font-weight:700;">✕ Close</button>';
+  overlay.appendChild(hdr);
+  document.getElementById('closeOverlayBtn').onclick = ()=>{ overlay.style.display = 'none'; };
+
+  // Content card
+  const card = document.createElement('div');
+  card.style.cssText = 'margin:12px; background:var(--cream); border-radius:12px; padding:14px; box-shadow:0 1px 3px rgba(0,0,0,0.08);';
+  overlay.appendChild(card);
+
+  const history = loadHistory();
+  const allCounts = sumCounts(history);
+  const allPct = pctFromCounts(allCounts);
+
+  // Email field
+  const emailLabel = document.createElement('div');
+  emailLabel.className = 'section-label';
+  emailLabel.textContent = 'Report email';
+  card.appendChild(emailLabel);
+  const emailWrap = document.createElement('div');
+  emailWrap.className = 'field-row';
+  emailWrap.innerHTML = '<input type="email" id="overlayEmailInput" placeholder="you@example.com" value="'+loadEmail()+'" style="width:100%; font-size:13px;" />';
+  card.appendChild(emailWrap);
+  document.getElementById('overlayEmailInput').oninput = (e)=>{ saveEmail(e.target.value.trim()); };
+
+  if(history.length === 0){
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-size:13px; color:var(--muted); padding:14px 0;';
+    empty.textContent = 'No rounds saved yet. Finish a round to start building your history.';
+    card.appendChild(empty);
+    return;
+  }
+
+  // All-time stats
+  const allLabel = document.createElement('div');
+  allLabel.className = 'section-label';
+  allLabel.style.marginTop = '14px';
+  allLabel.textContent = 'All-time (' + history.length + (history.length===1?' round':' rounds') + ')';
+  card.appendChild(allLabel);
+
+  const allGrid = document.createElement('div');
+  allGrid.className = 'summary-grid';
+  allGrid.innerHTML =
+    statCard(allPct.fairwayPct===null?'—':allPct.fairwayPct+'%', 'Fairways hit') +
+    statCard(allPct.girPct===null?'—':allPct.girPct+'%', 'Greens in reg') +
+    statCard(allPct.chipPct===null?'—':allPct.chipPct+'%', 'Chips inside 10\u2019') +
+    statCard(allPct.avgPutts===null?'—':allPct.avgPutts, 'Avg putts/hole') +
+    statCard(allPct.toPar===null?'NA':(allPct.toPar>0?'+':'')+allPct.toPar, 'Score to par');
+  card.appendChild(allGrid);
+
+  // Insight
+  const insight = document.createElement('div');
+  insight.className = 'insight-card';
+  insight.innerHTML = '<div class="thought-label">Biggest opportunity</div>' + buildInsight(allPct.fairwayPct, allPct.girPct, allPct.avgPutts, allPct.chipPct, allCounts.holesLogged);
+  card.appendChild(insight);
+
+  // Saved rounds
+  const histLabel = document.createElement('div');
+  histLabel.className = 'section-label';
+  histLabel.style.marginTop = '18px';
+  histLabel.textContent = 'Saved rounds';
+  card.appendChild(histLabel);
+
+  history.slice().reverse().forEach((r, revIdx)=>{
+    const p = pctFromCounts(r);
+    const d = new Date(r.date);
+    const dateStr = (d.getMonth()+1)+'/'+d.getDate()+'/'+String(d.getFullYear()).slice(2);
+    const courseLabel = r.courseName ? (r.courseName+' \u00B7 ') : '';
+    const actualIdx = history.length - 1 - revIdx;
+    const row = document.createElement('div');
+    row.className = 'field-row';
+    row.style.alignItems = 'flex-start';
+    row.innerHTML =
+      '<div>' +
+        '<div class="field-label" style="margin-bottom:2px;">'+courseLabel+dateStr+' \u00B7 '+r.holesLogged+' holes</div>' +
+        '<div style="font-size:12px; color:var(--muted);">FW '+(p.fairwayPct===null?'—':p.fairwayPct+'%')+' \u00B7 GIR '+(p.girPct===null?'—':p.girPct+'%')+' \u00B7 Putts '+(p.avgPutts===null?'—':p.avgPutts)+' \u00B7 Par '+(p.toPar===null?'NA':(p.toPar>0?'+':'')+p.toPar)+'</div>' +
+      '</div>' +
+      '<button class="ovl-del-btn" data-idx="'+actualIdx+'" style="flex-shrink:0; background:none; border:none; color:var(--muted); font-size:20px; padding:0 4px;">\u00D7</button>';
+    card.appendChild(row);
+  });
+
+  card.querySelectorAll('.ovl-del-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      const idx = parseInt(btn.dataset.idx, 10);
+      if(!confirm('Remove this round from history?')) return;
+      const h = loadHistory();
+      h.splice(idx, 1);
+      saveHistory(h);
+      showHistoryOverlay();
+    };
+  });
+
+  // Clear all
+  const clearRow = document.createElement('div');
+  clearRow.className = 'reset-row';
+  clearRow.innerHTML = '<button class="reset-link" id="ovlClearBtn">Clear all saved history</button>';
+  card.appendChild(clearRow);
+  document.getElementById('ovlClearBtn').onclick = ()=>{
+    if(!confirm('Delete all saved round history? This can\u2019t be undone.')) return;
+    saveHistory([]);
+    showHistoryOverlay();
+  };
+}
+
 function renderSetupScreen(){
   const wrap = document.getElementById('setupScreen');
   document.getElementById('mainApp').style.display = 'none';
@@ -1387,11 +1499,7 @@ function renderSetupScreen(){
       roundMeta = { courseName: '', pars: null };
       render();
     };
-    document.getElementById('viewCardBtn').onclick = ()=>{
-      roundMeta = { courseName: '', pars: null };
-      currentPhase = 'card';
-      render();
-    };
+    document.getElementById('viewCardBtn').onclick = ()=>{ showHistoryOverlay(); };
   } else {
     let parsHtml = '';
     for(let i=1;i<=18;i++){
