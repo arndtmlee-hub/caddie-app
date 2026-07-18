@@ -405,6 +405,29 @@
   }
   .insight-line:last-child{margin-bottom:0;}
 
+  .course-dropdown{
+    background:var(--card);
+    border:1.5px solid var(--turf);
+    border-radius:0 0 10px 10px;
+    overflow:hidden;
+    margin-top:-2px;
+  }
+  .course-option{
+    padding:10px 12px;
+    font-size:13.5px;
+    border-bottom:1px solid var(--line);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .course-option:last-child{border-bottom:none;}
+  .course-option:active{background:var(--fairway);}
+  .course-option-par{
+    font-size:11px;
+    color:var(--muted);
+  }
+
   /* Scorecard */
   .scorecard-wrap{
     overflow-x:auto;
@@ -1010,6 +1033,39 @@ const EMAIL_KEY = 'caddie_email_v1';
 function loadEmail(){ try{ return localStorage.getItem(EMAIL_KEY) || ''; }catch(e){ return ''; } }
 function saveEmail(v){ try{ localStorage.setItem(EMAIL_KEY, v); }catch(e){} }
 
+const COURSES_KEY = 'caddie_courses_v1';
+function loadCourses(){ try{ return JSON.parse(localStorage.getItem(COURSES_KEY) || '[]'); }catch(e){ return []; } }
+function saveCourses(arr){ try{ localStorage.setItem(COURSES_KEY, JSON.stringify(arr)); }catch(e){} }
+function saveCourseMemory(name, pars){
+  if(!name || !pars) return;
+  const courses = loadCourses();
+  const existing = courses.find(c=> c.name.toLowerCase() === name.toLowerCase());
+  if(existing){
+    existing.pars = Object.assign({}, pars);
+    existing.lastPlayed = new Date().toISOString();
+    existing.playCount = (existing.playCount || 1) + 1;
+  } else {
+    courses.push({ name: name, pars: Object.assign({}, pars), lastPlayed: new Date().toISOString(), playCount: 1 });
+  }
+  // Score each course: playCount heavily weighted + recency bonus
+  const now = Date.now();
+  courses.forEach(c=>{
+    const daysSince = (now - new Date(c.lastPlayed).getTime()) / (1000*60*60*24);
+    const recencyScore = Math.max(0, 365 - daysSince) / 365; // 0-1 decaying over a year
+    c._score = (c.playCount || 1) * 10 + recencyScore * 5;
+  });
+  // Sort by score descending, keep top 30
+  courses.sort((a,b)=> b._score - a._score);
+  saveCourses(courses.slice(0, 30).map(c=>{ delete c._score; return c; }));
+}
+function matchCourses(query){
+  const courses = loadCourses();
+  // already sorted by frequency+recency from save
+  if(!query || query.trim().length === 0) return courses.slice(0, 5);
+  const q = query.toLowerCase().trim();
+  return courses.filter(c=> c.name.toLowerCase().includes(q)).slice(0, 5);
+}
+
 function buildScorecardText(){
   if(!roundMeta || !roundMeta.pars) return null;
   const lines = [];
@@ -1183,6 +1239,7 @@ function finishAndEmail(){
   if(!confirm('Save this round to history and send the summary email?')) return;
   const history = loadHistory();
   const courseName = roundMeta ? roundMeta.courseName : '';
+  if(courseName && roundMeta && roundMeta.pars) saveCourseMemory(courseName, roundMeta.pars);
   history.push(Object.assign({ date: new Date().toISOString(), courseName: courseName }, liveCounts));
   saveHistory(history);
   const allCountsForEmail = sumCounts(history);
@@ -1481,9 +1538,10 @@ function renderSetupScreen(){
   if(setupStep === 1){
     card.innerHTML =
       '<div class="setup-title">Round setup \u2014 step 1 of 2</div>' +
-      '<div class="setup-sub">What course are you playing? This shows up on your saved rounds and email summaries.</div>' +
-      '<input type="text" id="courseNameInput" class="setup-input" placeholder="Course name" value="'+setupCourseName+'" />' +
-      '<div class="setup-btn-row">' +
+      '<div class="setup-sub">What course are you playing?</div>' +
+      '<input type="text" id="courseNameInput" class="setup-input" placeholder="Course name" value="'+setupCourseName+'" autocomplete="off" />' +
+      '<div id="courseDropdown"></div>' +
+      '<div class="setup-btn-row" style="margin-top:8px;">' +
         '<button class="setup-btn-primary" id="setupNext">Next \u2192</button>' +
       '</div>' +
       '<div class="setup-btn-row" style="margin-top:8px;">' +
@@ -1493,8 +1551,51 @@ function renderSetupScreen(){
         '<button class="setup-btn-skip" id="viewCardBtn" style="flex:1;">📋 View Card & History</button>' +
       '</div>';
     wrap.appendChild(card);
-    document.getElementById('courseNameInput').oninput = (e)=>{ setupCourseName = e.target.value; };
-    document.getElementById('setupNext').onclick = ()=>{ setupStep = 2; render(); };
+
+    function renderDropdown(query){
+      const dd = document.getElementById('courseDropdown');
+      const matches = matchCourses(query);
+      dd.innerHTML = '';
+      if(matches.length === 0) return;
+      const wrap2 = document.createElement('div');
+      wrap2.className = 'course-dropdown';
+      matches.forEach(c=>{
+        const totalPar = Object.values(c.pars).reduce((a,b)=>a+b, 0);
+        const opt = document.createElement('div');
+        opt.className = 'course-option';
+        const d = new Date(c.lastPlayed);
+        const dateStr = (d.getMonth()+1)+'/'+d.getDate()+'/'+String(d.getFullYear()).slice(2);
+        const plays = c.playCount || 1;
+        opt.innerHTML = '<span>'+c.name+'</span><span class="course-option-par">Par '+totalPar+' \u00B7 '+plays+'x \u00B7 '+dateStr+'</span>';
+        opt.onclick = ()=>{
+          // auto-fill name and pars, skip to round start
+          setupCourseName = c.name;
+          setupPars = Object.assign({}, c.pars);
+          roundMeta = { courseName: c.name, pars: Object.assign({}, c.pars) };
+          render();
+        };
+        wrap2.appendChild(opt);
+      });
+      dd.appendChild(wrap2);
+    }
+
+    const inp = document.getElementById('courseNameInput');
+    inp.oninput = (e)=>{
+      setupCourseName = e.target.value;
+      renderDropdown(e.target.value);
+    };
+    // show recent courses immediately on focus if input empty
+    inp.onfocus = (e)=>{
+      if(!e.target.value) renderDropdown(' ');
+    };
+    // show on load if name pre-filled
+    if(setupCourseName) renderDropdown(setupCourseName);
+
+    document.getElementById('setupNext').onclick = ()=>{
+      document.getElementById('courseDropdown').innerHTML = '';
+      setupStep = 2;
+      render();
+    };
     document.getElementById('setupSkipAll').onclick = ()=>{
       roundMeta = { courseName: '', pars: null };
       render();
@@ -1530,6 +1631,7 @@ function renderSetupScreen(){
     });
     document.getElementById('setupSave').onclick = ()=>{
       roundMeta = { courseName: setupCourseName, pars: Object.assign({}, setupPars) };
+      saveCourseMemory(setupCourseName, setupPars);
       render();
     };
     document.getElementById('setupSkipPars').onclick = ()=>{
