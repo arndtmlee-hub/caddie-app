@@ -1688,6 +1688,13 @@ document.getElementById('nextPhase').onclick = ()=>{
   if(currentPhase === 'card') return;
   const idx = NAV_PHASES.indexOf(currentPhase);
   if(currentPhase === 'putt'){
+    // Auto-commit par as score if player never touched the stepper
+    if(roundMeta && roundMeta.pars){
+      const d = getHoleState().data;
+      if(d.score === null){
+        d.score = roundMeta.pars[currentHole];
+      }
+    }
     // Next Hole
     currentHole = Math.min(18, currentHole + 1);
     currentPhase = 'tee';
