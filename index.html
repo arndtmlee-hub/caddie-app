@@ -428,6 +428,143 @@
     color:var(--muted);
   }
 
+  /* Hogan Cues overlay */
+  .hogan-wrap{
+    margin:12px;
+    background:var(--cream);
+    border-radius:12px;
+    padding:14px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.15);
+  }
+  .hogan-eyebrow{
+    font-size:10px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.1em;
+    color:var(--turf);
+    margin-bottom:4px;
+  }
+  .hogan-title{
+    font-size:20px;
+    font-weight:700;
+    color:var(--ink);
+    margin-bottom:4px;
+  }
+  .hogan-intro{
+    font-size:12.5px;
+    color:var(--muted);
+    line-height:1.5;
+    margin-bottom:14px;
+    padding-bottom:12px;
+    border-bottom:1px solid var(--line);
+  }
+  .hogan-lesson{
+    margin-bottom:14px;
+    padding-bottom:14px;
+    border-bottom:1px solid var(--line);
+  }
+  .hogan-lesson:last-child{border-bottom:none; margin-bottom:0;}
+  .hogan-lesson-hdr{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    margin-bottom:8px;
+  }
+  .hogan-lesson-num{
+    font-size:22px;
+    font-weight:700;
+    color:var(--sand);
+    line-height:1;
+    flex-shrink:0;
+  }
+  .hogan-lesson-title{
+    font-size:14px;
+    font-weight:700;
+    color:var(--ink);
+  }
+  .hogan-lesson-sub{
+    font-size:11px;
+    color:var(--muted);
+    margin-bottom:8px;
+  }
+  .hogan-cue{
+    display:flex;
+    align-items:flex-start;
+    gap:8px;
+    font-size:12.5px;
+    line-height:1.45;
+    padding:7px 8px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:6px;
+    margin-bottom:5px;
+    cursor:pointer;
+  }
+  .hogan-cue.critical{
+    border-color:var(--flag);
+    background:#FBF1EF;
+  }
+  .hogan-cue-check{
+    width:16px;height:16px;
+    border-radius:3px;
+    border:1.5px solid var(--turf);
+    flex-shrink:0;
+    margin-top:2px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:11px;
+    color:transparent;
+  }
+  .hogan-cue.checked .hogan-cue-check{
+    background:var(--turf);
+    border-color:var(--turf);
+    color:var(--cream);
+  }
+  .hogan-cue.checked .hogan-cue-text{
+    color:var(--muted);
+    text-decoration:line-through;
+    text-decoration-color:var(--muted);
+  }
+  .hogan-cue-tag{
+    font-size:9.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.07em;
+    color:var(--flag);
+    display:block;
+    margin-bottom:2px;
+  }
+  .hogan-chain{
+    background:var(--turf);
+    color:var(--cream);
+    border-radius:10px;
+    padding:12px 14px;
+    margin-top:14px;
+  }
+  .hogan-chain-title{
+    font-size:13px;
+    font-weight:700;
+    margin-bottom:4px;
+  }
+  .hogan-chain-note{
+    font-size:11px;
+    opacity:0.8;
+    margin-bottom:10px;
+  }
+  .hogan-chain-steps{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    font-size:11.5px;
+    font-weight:700;
+    align-items:center;
+  }
+  .hogan-chain-step{
+    background:rgba(255,255,255,0.12);
+    border:1px solid rgba(247,244,234,0.3);
+    border-radius:6px;
+    padding:5px 9px;
+  }
+
   /* Scorecard */
   .scorecard-wrap{
     overflow-x:auto;
@@ -622,7 +759,10 @@
 <header>
   <div style="display:flex; align-items:center; justify-content:space-between;">
     <h1>In-round caddie</h1>
-    <button id="helpBtn" style="background:none; border:1.5px solid rgba(247,244,234,0.5); color:var(--cream); border-radius:8px; padding:5px 10px; font-size:11.5px; font-weight:700;">How it works</button>
+    <div style="display:flex; gap:6px;">
+      <button id="hoganBtn" style="background:none; border:1.5px solid rgba(247,244,234,0.5); color:var(--cream); border-radius:8px; padding:5px 8px; font-size:11px; font-weight:700;">📖 Cues</button>
+      <button id="helpBtn" style="background:none; border:1.5px solid rgba(247,244,234,0.5); color:var(--cream); border-radius:8px; padding:5px 8px; font-size:11.5px; font-weight:700;">How it works</button>
+    </div>
   </div>
   <div class="hole-row">
     <div class="hole-control">
@@ -637,6 +777,7 @@
 </header>
 
 <div id="helpScreen"></div>
+<div id="hoganOverlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:var(--fairway); z-index:25; overflow-y:auto; padding-bottom:30px;"></div>
 <div id="historyOverlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:var(--fairway); z-index:20; overflow-y:auto; padding-bottom:20px;"></div>
 <div id="setupScreen"></div>
 
@@ -1414,6 +1555,161 @@ function buildInsight(fairwayPct, girPct, avgPutts, chipPct, holesLogged){
   }
   return top.map(g=>'<div class="insight-line"><strong>'+g.area+':</strong> '+g.text+'</div>').join('');
 }
+
+const HOGAN_LESSONS = [
+  {
+    num:'01', label:'GRIP', title:'The Grip',
+    sub:'Lead hand, then trail hand — pressure lives in the fingers, not the palm',
+    cues:[
+      {text:'Crook your index finger, rest the club against it and the base of your palm, then close the lead hand over it'},
+      {text:'Pressure should sit mainly in the last three fingers of the lead hand'},
+      {text:'Back of the lead hand faces the target; the "V" of thumb and index finger points at your trail eye'},
+      {text:'Slide the trail pinky into the gap between the lead index and middle finger'},
+      {text:'Trail pinky and middle finger ride up on the fingers — not down in the palm'},
+      {text:'Trail thumb and index finger stay passive, just resting in place'},
+      {text:'Close the trail palm over the lead thumb; the trail hand\'s "V" points at the middle of your chin'}
+    ]
+  },
+  {
+    num:'02', label:'STANCE', title:'Stance & Posture',
+    sub:'Sets up the balance between power and control',
+    cues:[
+      {text:'Aim your face at the target first — build the stance around that line, not the other way around'},
+      {text:'Ball position stays just inside the lead foot on every club, every swing'},
+      {text:'Trail foot square (90°) to the target line; lead foot open about a quarter-turn (~22°)'},
+      {text:'Trail foot width scales with the club: shoulder-width for a 5-iron, narrower with wedges, wider with driver'},
+      {text:'Keep one arm fully extended through the whole swing — lead arm through the backswing, trail arm past impact'},
+      {text:'Upper arms snug to the chest, forearms close, elbows pointing toward the hips — active relaxation'},
+      {text:'Knees stay "married" — pointed toward each other, moving together, never swaying apart'},
+      {text:'Trail knee holds its flex through the backswing coil — it shouldn\'t straighten or sway'},
+      {text:'Weight balanced heel-to-toe and side-to-side, sitting mostly over the heels, legs springy and ready'}
+    ]
+  },
+  {
+    num:'03', label:'BACK', title:'First Part of the Swing',
+    sub:'The backswing — building tension on plane',
+    cues:[
+      {text:'Drive the motion from the inside muscles — inner arms, inner thighs — for control and power together'},
+      {text:'Use the waggle to rehearse the exact club path; shoulders stay still during it'},
+      {text:'Picture a pane of glass from the ball to your shoulders — arms should never break above or below it'},
+      {text:'Breaking above the glass causes a two-way miss — slice right or pull left', critical:true, tag:'Watch for'},
+      {text:'Start the backswing with hands, arms, and shoulders — let hips stay quiet until hands reach waist height'},
+      {text:'Rotate the shoulders fully until your back faces the target — that\'s what builds hip-shoulder tension'},
+      {text:'Don\'t intentionally overturn the hips — that bleeds off the tension you\'re trying to store'}
+    ]
+  },
+  {
+    num:'04', label:'DOWN', title:'Second Part of the Swing',
+    sub:'The downswing and follow-through — release what you built',
+    cues:[
+      {text:'Start the downswing with the hips — not the hands, arms, or shoulders. Single most repeated point in the book.', critical:true, tag:'Mission critical'},
+      {text:'Picture an elastic band tied from your lead hip to the wall behind you — let it pull the hip back to initiate'},
+      {text:'Once the hips lead, the arms fall naturally into position at the waist — power is already stored'},
+      {text:'From there, swing hard through impact with both arms — if the setup was right, the position holds'},
+      {text:'Just before impact, cup the lead wrist slightly, like scooping a bowl of soup — skipping this pushes shots right'}
+    ]
+  },
+  {
+    num:'05', label:'REPS', title:'Summary',
+    sub:'The whole system, in the order it has to be built',
+    cues:[
+      {text:'Nothing here works out of order — each lesson depends on the one before it being solid first'},
+      {text:'Six months of deliberate reps, in this sequence, is the stated timeline to break 80 consistently'}
+    ]
+  }
+];
+
+const HOGAN_CHECKS_KEY = 'caddie_hogan_checks_v1';
+function loadHoganChecks(){ try{ return JSON.parse(localStorage.getItem(HOGAN_CHECKS_KEY)||'{}'); }catch(e){ return {}; } }
+function saveHoganChecks(obj){ try{ localStorage.setItem(HOGAN_CHECKS_KEY, JSON.stringify(obj)); }catch(e){} }
+
+function showHoganOverlay(){
+  const overlay = document.getElementById('hoganOverlay');
+  overlay.style.display = 'block';
+  overlay.innerHTML = '';
+
+  // Header
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'background:var(--turf-dark); color:var(--cream); padding:12px 14px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:1;';
+  hdr.innerHTML = '<span style="font-size:15px; font-weight:700;">📖 The Hogan Cues</span><div style="display:flex;gap:8px;"><button id="clearHoganBtn" style="background:none;border:1.5px solid rgba(247,244,234,0.4);color:var(--cream);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;">Clear checks</button><button id="closeHoganBtn" style="background:none;border:1.5px solid rgba(247,244,234,0.4);color:var(--cream);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;">✕ Close</button></div>';
+  overlay.appendChild(hdr);
+
+  document.getElementById('closeHoganBtn').onclick = ()=>{ overlay.style.display = 'none'; };
+  document.getElementById('clearHoganBtn').onclick = ()=>{ saveHoganChecks({}); showHoganOverlay(); };
+
+  const wrap = document.createElement('div');
+  wrap.className = 'hogan-wrap';
+  overlay.appendChild(wrap);
+
+  // Intro
+  const eyebrow = document.createElement('div');
+  eyebrow.className = 'hogan-eyebrow';
+  eyebrow.textContent = 'Ben Hogan · Five Lessons · Practice Reference';
+  wrap.appendChild(eyebrow);
+
+  const title = document.createElement('div');
+  title.className = 'hogan-title';
+  title.textContent = 'Five Lessons — The Hogan Cues';
+  wrap.appendChild(title);
+
+  const intro = document.createElement('div');
+  intro.className = 'hogan-intro';
+  intro.innerHTML = 'Any golfer with average coordination who works through these five lessons <strong>in sequence</strong> for six months can break 80 consistently. Each lesson only holds up if the one before it is solid — <span style="color:var(--flag);font-weight:600;">grip before stance, stance before backswing, backswing before downswing.</span> Tap cues to check them off during a range session.';
+  wrap.appendChild(intro);
+
+  // Lessons
+  const checks = loadHoganChecks();
+
+  HOGAN_LESSONS.forEach(lesson=>{
+    const lessonDiv = document.createElement('div');
+    lessonDiv.className = 'hogan-lesson';
+
+    const hdrDiv = document.createElement('div');
+    hdrDiv.className = 'hogan-lesson-hdr';
+    hdrDiv.innerHTML = '<div class="hogan-lesson-num">'+lesson.num+'</div><div><div class="hogan-lesson-title">'+lesson.title+'</div></div>';
+    lessonDiv.appendChild(hdrDiv);
+
+    const sub = document.createElement('div');
+    sub.className = 'hogan-lesson-sub';
+    sub.textContent = lesson.sub;
+    lessonDiv.appendChild(sub);
+
+    lesson.cues.forEach((cue, cIdx)=>{
+      const key = lesson.num + '_' + cIdx;
+      const checked = !!checks[key];
+      const cueDiv = document.createElement('div');
+      cueDiv.className = 'hogan-cue' + (cue.critical?' critical':'') + (checked?' checked':'');
+      cueDiv.innerHTML =
+        '<div class="hogan-cue-check">'+(checked?'✓':'')+'</div>' +
+        '<div class="hogan-cue-text">'+(cue.tag?'<span class="hogan-cue-tag">'+cue.tag+'</span>':'')+cue.text+'</div>';
+      cueDiv.onclick = ()=>{
+        const c = loadHoganChecks();
+        c[key] = !c[key];
+        saveHoganChecks(c);
+        showHoganOverlay();
+      };
+      lessonDiv.appendChild(cueDiv);
+    });
+
+    wrap.appendChild(lessonDiv);
+  });
+
+  // Build order chain
+  const chain = document.createElement('div');
+  chain.className = 'hogan-chain';
+  chain.innerHTML =
+    '<div class="hogan-chain-title">Build Order</div>' +
+    '<div class="hogan-chain-note">Fix each link before working on the next.</div>' +
+    '<div class="hogan-chain-steps">' +
+      '<span class="hogan-chain-step">Grip</span><span style="opacity:0.6;">→</span>' +
+      '<span class="hogan-chain-step">Stance & Posture</span><span style="opacity:0.6;">→</span>' +
+      '<span class="hogan-chain-step">Backswing</span><span style="opacity:0.6;">→</span>' +
+      '<span class="hogan-chain-step">Downswing (hips first)</span>' +
+    '</div>';
+  wrap.appendChild(chain);
+}
+
+document.getElementById('hoganBtn').onclick = ()=>{ showHoganOverlay(); };
 
 function showHistoryOverlay(){
   const overlay = document.getElementById('historyOverlay');
